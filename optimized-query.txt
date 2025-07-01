@@ -1,0 +1,45 @@
+
+  query EventBracketWithCharacters($eventId: ID!, $page: Int!, $perPage: Int!) {
+    event(id: $eventId) {
+      id
+      name
+      slug
+      sets(
+        page: $page
+        perPage: $perPage
+        sortType: ROUND
+      ) {
+        pageInfo {
+          total
+          totalPages
+          page
+          perPage
+          hasNextPage
+        }
+        nodes {
+          id
+          round
+          fullRoundText
+          displayScore
+          winnerId
+          slots {
+            entrant {
+              id
+              name
+            }
+            standing {
+              stats {
+                score {
+                  value
+                }
+              }
+            }
+          }
+          games {
+            orderNum
+            winnerId
+          }
+        }
+      }
+    }
+  }
