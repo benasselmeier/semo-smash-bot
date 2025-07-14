@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { ROLE_MAPPINGS, COLORS } = require('../config/constants');
 const sessionManager = require('../utils/sessionManager');
 const { startAnnouncementFlow } = require('../steps/announcementFlow');
+const configManager = require('../utils/configManager');
 
 async function checkTOPermissions(interaction) {
   // Check if user has any TO roles
@@ -14,13 +15,30 @@ async function checkTOPermissions(interaction) {
     return null;
   }
   
+  // First check using config manager
+  if (configManager.hasToPermissions(member)) {
+    const config = configManager.getGuildConfig(member.guild.id);
+    if (config && config.toRoles && config.toRoles.length > 0) {
+      const userTORoles = member.roles.cache.filter(role => config.toRoles.includes(role.id));
+      if (userTORoles.size > 0) {
+        return userTORoles;
+      }
+    }
+  }
+  
+  // Fallback to hardcoded role mappings if no config exists
   const userTORoles = member.roles.cache.filter(role => 
     Object.keys(ROLE_MAPPINGS).includes(role.name)
   );
   
   if (userTORoles.size === 0) {
+    const hasConfig = configManager.hasGuildConfig(member.guild.id);
+    const errorMessage = hasConfig 
+      ? '❌ You need to have a configured Tournament Organizer role to use the tournament manager.\n\nAsk an administrator to run `/setup` to configure TO roles.'
+      : '❌ You need to have a Tournament Organizer role to use the tournament manager.\n\nAvailable TO roles: ' + Object.keys(ROLE_MAPPINGS).join(', ') + '\n\nOr ask an administrator to run `/setup` to configure custom roles.';
+    
     await interaction.reply({ 
-      content: '❌ You need to have a Tournament Organizer role to use the tournament manager.\n\nAvailable TO roles: ' + Object.keys(ROLE_MAPPINGS).join(', '), 
+      content: errorMessage, 
       ephemeral: true 
     });
     return null;
@@ -72,7 +90,8 @@ async function executeCreate(interaction, slug = null) {
       flow: 'announcement',
       data: {},
       toRoles: userTORoles.map(role => role.name),
-      primaryTORole: primaryTORole.name
+      primaryTORole: primaryTORole.name,
+      eventType: configManager.getEventTypeFromRole(interaction.member) // Auto-detect event type
     });
     
     if (slug) {
@@ -161,7 +180,8 @@ module.exports = {
         step: 'main_selection',
         data: {},
         toRoles: userTORoles.map(role => role.name),
-        primaryTORole: primaryTORole.name
+        primaryTORole: primaryTORole.name,
+        eventType: configManager.getEventTypeFromRole(interaction.member) // Auto-detect event type
       });
       
     } catch (error) {

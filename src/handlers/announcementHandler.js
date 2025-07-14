@@ -2,6 +2,8 @@ const { ROLE_MAPPINGS } = require('../config/constants');
 const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const embedBuilder = require('../utils/embedBuilder');
 const sessionManager = require('../utils/sessionManager');
+const configManager = require('../utils/configManager');
+const multiEventHandler = require('./multiEventHandler');
 
 async function createTournamentAnnouncement(session) {
   const data = session.data;
@@ -10,10 +12,19 @@ async function createTournamentAnnouncement(session) {
   sessionManager.updateSession(session.userId, { step: 'confirmation' });
   
   // Get the corresponding Enjoyer roles available for notification
-  const availableEnjoyerRoles = session.toRoles.map(toRole => ROLE_MAPPINGS[toRole]).filter(Boolean);
+  let availableEnjoyerRoles = [];
   
-  // Create the tournament announcement embed for preview
-  const embed = embedBuilder.createAnnouncementEmbed(data);
+  // First try to get roles from config manager
+  const configuredEnjoyerRoles = configManager.getEnjoyerRoles(session.botMessage.guild);
+  if (configuredEnjoyerRoles.length > 0) {
+    availableEnjoyerRoles = configuredEnjoyerRoles.map(role => role.name);
+  } else {
+    // Fallback to hardcoded role mappings
+    availableEnjoyerRoles = session.toRoles.map(toRole => ROLE_MAPPINGS[toRole]).filter(Boolean);
+  }
+  
+  // Create the tournament announcement embed for preview (with event type color)
+  const embed = embedBuilder.createSingleEventAnnouncementEmbed(data, session.eventType);
   
   // Create role selection menu
   const roleOptions = availableEnjoyerRoles.map(roleName => ({
@@ -58,7 +69,7 @@ async function createTournamentAnnouncement(session) {
   
   // Update the message with confirmation
   await session.botMessage.edit({ 
-    content: "Here's your announcement. Please choose the roles you'd like to notify and confirm to send it in the tournament announcements channel. To edit any information, click the edit action below.",
+    content: `Here's your ${session.eventType} event announcement. Please choose the roles you'd like to notify and confirm to send it in the tournament announcements channel. To edit any information, click the edit action below.`,
     embeds: [embed], 
     components: [selectRow, buttonRow]
   });
@@ -67,36 +78,8 @@ async function createTournamentAnnouncement(session) {
 async function postTournamentAnnouncement(session, selectedRoles) {
   const data = session.data;
   
-  // Create role mentions based on selection
-  let roleMentions = [];
-  if (!selectedRoles.includes('none')) {
-    const guild = session.botMessage.guild;
-    roleMentions = selectedRoles.map(roleName => {
-      const role = guild.roles.cache.find(r => r.name === roleName);
-      return role ? `<@&${role.id}>` : null;
-    }).filter(Boolean);
-  }
-  
-  // Create the tournament announcement embed
-  const embed = embedBuilder.createAnnouncementEmbed(data);
-  
-  // Create the final announcement message with role pings
-  const announcementContent = roleMentions.length > 0 
-    ? `🎮 **Tournament Announcement** 🎮\n\n${roleMentions.join(' ')} - A new tournament has been announced!`
-    : '🎮 **Tournament Announcement** 🎮';
-  
-  // Update the creation message to show completion
-  await session.botMessage.edit({ 
-    content: '✅ **Tournament announcement posted successfully!**', 
-    embeds: [], 
-    components: [] 
-  });
-  
-  // Send the actual tournament announcement as a new message
-  await session.botMessage.channel.send({
-    content: announcementContent,
-    embeds: [embed]
-  });
+  // Use the multi-event handler to add this event to announcements
+  await multiEventHandler.addEventToAnnouncement(session, data, selectedRoles);
   
   // Clean up session
   sessionManager.deleteSession(session.userId);

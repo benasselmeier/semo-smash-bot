@@ -4,10 +4,12 @@ const { Routes } = require('discord-api-types/v9');
 const { TEXT_STEPS } = require('./src/config/constants');
 const sessionManager = require('./src/utils/sessionManager');
 const { handleTournamentResponse } = require('./src/handlers/messageHandler');
-const { handleButtonInteraction } = require('./src/handlers/buttonHandler');
+const { handleButtonInteraction, handleChannelModalSubmit } = require('./src/handlers/buttonHandler');
 const { handleSelectMenuInteraction } = require('./src/handlers/selectMenuHandler');
 const pingCommand = require('./src/commands/ping');
 const tourneyCommand = require('./src/commands/tourney');
+const setupCommand = require('./src/commands/setup');
+const multiEventHandler = require('./src/handlers/multiEventHandler');
 require('dotenv').config();
 
 // Create a new client instance
@@ -24,6 +26,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName('ping')
     .setDescription('Replies with Pong!'),
+  new SlashCommandBuilder()
+    .setName('setup')
+    .setDescription('Configure bot settings and permissions (Administrator only)'),
   new SlashCommandBuilder()
     .setName('tourney')
     .setDescription('Tournament management commands')
@@ -67,6 +72,14 @@ async function registerCommands() {
 client.once('ready', async () => {
   console.log(`✅ Bot is online as ${client.user.tag}!`);
   await registerCommands();
+  
+  // Start cleanup interval for old announcements (every 6 hours)
+  setInterval(() => {
+    multiEventHandler.cleanupOldAnnouncements();
+  }, 6 * 60 * 60 * 1000);
+  
+  // Run initial cleanup
+  multiEventHandler.cleanupOldAnnouncements();
 });
 
 // Handle slash command interactions
@@ -77,6 +90,11 @@ client.on('interactionCreate', async (interaction) => {
     try {
       if (commandName === 'ping') {
         await pingCommand.execute(interaction);
+        return;
+      }
+      
+      if (commandName === 'setup') {
+        await setupCommand.execute(interaction);
         return;
       }
       
@@ -96,6 +114,13 @@ client.on('interactionCreate', async (interaction) => {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ content: 'Sorry, something went wrong. Please try again.', ephemeral: true });
       }
+    }
+  }
+  
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId.includes('_channel_modal')) {
+      await handleChannelModalSubmit(interaction);
+      return;
     }
   }
   
