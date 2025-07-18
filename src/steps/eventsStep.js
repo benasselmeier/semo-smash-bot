@@ -3,7 +3,7 @@ const embedBuilder = require('../utils/embedBuilder');
 
 async function askEventsQuestion(session) {
   const embed = embedBuilder.createStepEmbed(
-    'Step 8/8',
+    'Step 5/6',
     'What **events** will be running?'
   ).setFooter({ text: 'Select all events that apply' });
 

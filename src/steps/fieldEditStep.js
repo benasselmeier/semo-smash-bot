@@ -15,8 +15,6 @@ async function showFieldEditSelection(session) {
       { name: '📍 Address', value: data.address || 'Not set', inline: true },
       { name: '👤 TO Contact', value: data.toContact || 'Not set', inline: true },
       { name: '📅 Start Time', value: data.startTime || 'Not set', inline: true },
-      { name: '🏢 Venue Fee', value: data.venueFee || 'Not set', inline: true },
-      { name: '💰 Entry Fee', value: data.entryFee || 'Not set', inline: true },
       { name: '🎮 Events', value: data.events || 'Not set', inline: false }
     )
     .setFooter({ text: 'Select a field to edit from the dropdown below' });
@@ -51,18 +49,6 @@ async function showFieldEditSelection(session) {
         value: 'start_time',
         description: `Current: ${data.startTime ? data.startTime.substring(0, 50) : 'Not set'}`,
         emoji: '📅'
-      },
-      {
-        label: 'Venue Fee',
-        value: 'venue_fee',
-        description: `Current: ${data.venueFee || 'Not set'}`,
-        emoji: '🏢'
-      },
-      {
-        label: 'Entry Fee',
-        value: 'entry_fee',
-        description: `Current: ${data.entryFee || 'Not set'}`,
-        emoji: '💰'
       },
       {
         label: 'Events',

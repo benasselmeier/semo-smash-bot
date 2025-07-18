@@ -24,7 +24,7 @@ async function createTournamentAnnouncement(session) {
   }
   
   // Create the tournament announcement embed for preview (with event type color)
-  const embed = embedBuilder.createSingleEventAnnouncementEmbed(data, session.eventType);
+  const embed = embedBuilder.createSingleEventAnnouncementEmbed(data, session.eventType, session.primaryTORole);
   
   // Create role selection menu
   const roleOptions = availableEnjoyerRoles.map(roleName => ({

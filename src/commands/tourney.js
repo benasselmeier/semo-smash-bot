@@ -10,7 +10,7 @@ async function checkTOPermissions(interaction) {
   if (!member) {
     await interaction.reply({ 
       content: 'Could not verify your permissions. Please try again.', 
-      ephemeral: true 
+      flags: 64 // EPHEMERAL flag
     });
     return null;
   }
@@ -39,7 +39,7 @@ async function checkTOPermissions(interaction) {
     
     await interaction.reply({ 
       content: errorMessage, 
-      ephemeral: true 
+      flags: 64 // EPHEMERAL flag
     });
     return null;
   }
@@ -53,7 +53,7 @@ async function executeCreate(interaction, slug = null) {
     if (sessionManager.hasSession(interaction.user.id)) {
       return await interaction.reply({ 
         content: 'You already have an active tournament session. Please complete it first or type `cancel` to cancel.', 
-        ephemeral: true 
+        flags: 64 // EPHEMERAL flag
       });
     }
     
@@ -115,7 +115,7 @@ async function executeCreate(interaction, slug = null) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ 
         content: 'Sorry, I couldn\'t start the tournament creation. Please try again.', 
-        ephemeral: true 
+        flags: 64 // EPHEMERAL flag
       });
     }
   }
@@ -131,7 +131,7 @@ module.exports = {
       if (sessionManager.hasSession(interaction.user.id)) {
         return await interaction.reply({ 
           content: 'You already have an active tournament session. Please complete it first or type `cancel` to cancel.', 
-          ephemeral: true 
+          flags: 64 // EPHEMERAL flag
         });
       }
       
@@ -189,7 +189,7 @@ module.exports = {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ 
           content: 'Sorry, I couldn\'t start the tournament manager. Please try again.', 
-          ephemeral: true 
+          flags: 64 // EPHEMERAL flag
         });
       }
     }

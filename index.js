@@ -73,6 +73,10 @@ client.once('ready', async () => {
   console.log(`✅ Bot is online as ${client.user.tag}!`);
   await registerCommands();
   
+  // Set client reference in configManager for cleanup operations
+  const configManager = require('./src/utils/configManager');
+  configManager.setClient(client);
+  
   // Start cleanup interval for old announcements (every 6 hours)
   setInterval(() => {
     multiEventHandler.cleanupOldAnnouncements();

@@ -1,8 +1,6 @@
 const sessionManager = require('../utils/sessionManager');
 const embedBuilder = require('../utils/embedBuilder');
 const { createTournamentAnnouncement } = require('./announcementHandler');
-const { askVenueFeeQuestion } = require('../steps/venueFeeStep');
-const { askEntryFeeQuestion } = require('../steps/entryFeeStep');
 const { askEventsQuestion } = require('../steps/eventsStep');
 const { showFieldEditSelection } = require('../steps/fieldEditStep');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
@@ -319,7 +317,7 @@ async function handleSelectMenuInteraction(interaction, session) {
       sessionManager.updateSession(session.userId, { step });
       await interaction.deferUpdate();
       const embed = embedBuilder.createStepEmbed(
-        session.step === 'edit_events' ? 'Edit Events' : 'Step 8/8',
+        session.step === 'edit_events' ? 'Edit Events' : 'Step 6/6',
         'Please type the custom events:\n\n*Example: Ultimate Singles, Tekken 8, Street Fighter 6*'
       );
       await session.botMessage.edit({ embeds: [embed], components: [] });
@@ -435,16 +433,6 @@ async function handleSelectMenuInteraction(interaction, session) {
           `What is the **start time and date**?\n\n*Current: ${session.data.startTime || 'Not set'}*\n\nEnter new start time:`
         );
         await session.botMessage.edit({ embeds: [timeEmbed], components: [] });
-        break;
-        
-      case 'venue_fee':
-        sessionManager.updateSession(session.userId, { step: 'edit_venue_fee' });
-        await askVenueFeeQuestion(sessionManager.getSession(session.userId));
-        break;
-        
-      case 'entry_fee':
-        sessionManager.updateSession(session.userId, { step: 'edit_entry_fee' });
-        await askEntryFeeQuestion(sessionManager.getSession(session.userId));
         break;
         
       case 'events':

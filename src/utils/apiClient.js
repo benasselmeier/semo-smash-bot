@@ -112,21 +112,14 @@ class StartGGClient {
 
     const events = tournament.events.map(event => event.name).join(', ');
     
-    // Get admin contact info
-    let toContact = 'Contact via Start.gg';
-    if (tournament.admins && tournament.admins.length > 0) {
-      const admin = tournament.admins[0];
-      if (admin.player && admin.player.gamerTag) {
-        toContact = `${admin.player.gamerTag} (Start.gg)`;
-      }
-    }
+    // Contact information will be set to Discord username by the calling code
+    // No longer pull from Start.gg admin data
 
     return {
       eventName: tournament.name,
       startTime: formattedDate,
       events: events || 'Not specified',
       address: tournament.venueAddress || tournament.venueName || 'Address not specified',
-      toContact: toContact,
       numAttendees: tournament.numAttendees || 0,
       registrationOpen: tournament.isRegistrationOpen
     };

@@ -7,6 +7,13 @@ class ConfigManager {
     
     // Track active announcement messages for multi-event grouping
     this.activeAnnouncements = new Collection(); // Map<guildId, Map<eventType, messageData>>
+    
+    // Store client reference for cleanup operations
+    this.client = null;
+  }
+
+  setClient(client) {
+    this.client = client;
   }
 
   saveGuildConfig(guildId, config) {
@@ -96,8 +103,8 @@ class ConfigManager {
       return EVENT_TYPE_MAPPINGS[firstRole.name];
     }
     
-    // Default to out of region if no specific mapping found
-    return 'out_of_region';
+    // Default to out of state if no specific mapping found
+    return 'out_of_state';
   }
   
   // Get or create active announcement for an event type

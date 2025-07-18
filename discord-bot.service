@@ -1,0 +1,27 @@
+[Unit]
+Description=Discord Tournament Bot
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=pi
+ExecStart=/usr/bin/node index.js
+WorkingDirectory=/home/pi/mb-stands-for-mother-brain
+Environment=NODE_ENV=production
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=discord-bot
+
+# Security settings
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/pi/mb-stands-for-mother-brain
+
+[Install]
+WantedBy=multi-user.target

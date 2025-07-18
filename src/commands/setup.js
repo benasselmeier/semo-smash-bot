@@ -12,7 +12,7 @@ module.exports = {
       if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
         return await interaction.reply({ 
           content: '❌ You need Administrator permissions to use the setup command.', 
-          ephemeral: true 
+          flags: 64 // EPHEMERAL flag
         });
       }
       
@@ -20,7 +20,7 @@ module.exports = {
       if (sessionManager.hasSession(interaction.user.id)) {
         return await interaction.reply({ 
           content: 'You already have an active session. Please complete it first or type `cancel` to cancel.', 
-          ephemeral: true 
+          flags: 64 // EPHEMERAL flag
         });
       }
       
@@ -30,7 +30,7 @@ module.exports = {
         .setDescription('Welcome to the bot setup! Configure roles and channels for tournament management.')
         .setColor(COLORS.PRIMARY)
         .addFields(
-          { name: '⚙️ What will be configured:', value: '• Tournament Organizer (TO) roles\n• Community "Enjoyer" notification roles\n• Tournament management channel\n• Announcement posting channel', inline: false },
+          { name: '⚙️ What will be configured:', value: '• Tournament Organizer (TO) roles\n• Community tournament notification roles\n• Tournament management channel\n• Announcement posting channel', inline: false },
           { name: '👤 Setup initiated by:', value: `<@${interaction.user.id}>`, inline: true },
           { name: '🏛️ Server:', value: interaction.guild.name, inline: true }
         )
@@ -53,15 +53,17 @@ module.exports = {
       
       const botMessage = await interaction.reply({ 
         embeds: [embed], 
-        components: [row], 
-        fetchReply: true 
+        components: [row]
       });
+      
+      // Get the message reference for the session
+      const messageRef = await interaction.fetchReply();
       
       // Initialize setup session
       sessionManager.createSession(interaction.user.id, {
         channelId: interaction.channel.id,
-        botMessageId: botMessage.id,
-        botMessage: botMessage,
+        botMessageId: messageRef.id,
+        botMessage: messageRef,
         step: 'setup_main',
         flow: 'setup',
         data: {
@@ -81,7 +83,12 @@ module.exports = {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({ 
           content: 'Sorry, I couldn\'t start the setup process. Please try again.', 
-          ephemeral: true 
+          flags: 64 // EPHEMERAL flag
+        });
+      } else {
+        await interaction.followUp({ 
+          content: 'Sorry, I couldn\'t start the setup process. Please try again.', 
+          flags: 64 // EPHEMERAL flag
         });
       }
     }

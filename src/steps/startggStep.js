@@ -70,6 +70,10 @@ async function handleStartggStep(message, session) {
     // Auto-populate data from Start.gg
     const formattedData = apiClient.formatTournamentData(tournamentData);
     
+    // Get Discord username from the message author
+    const discordUser = message.author;
+    const discordContact = `<@${discordUser.id}>`;
+    
     // Update session with API data
     sessionManager.updateSession(session.userId, {
       data: {
@@ -78,18 +82,18 @@ async function handleStartggStep(message, session) {
         startTime: formattedData.startTime,
         events: formattedData.events,
         address: formattedData.address,
-        toContact: formattedData.toContact,
+        toContact: discordContact,
         apiData: true
       }
     });
     
     // Show confirmation with pre-filled data
-    await showApiDataConfirmation(sessionManager.getSession(session.userId), formattedData);
+    await showApiDataConfirmation(sessionManager.getSession(session.userId), { ...formattedData, toContact: discordContact });
   } else {
     // Tournament not found, ask for manual event name
     sessionManager.updateSession(session.userId, { step: 'event_name_manual' });
     const embed = embedBuilder.createStepEmbed(
-      'Step 2/8', 
+      'Step 2/6', 
       '⚠️ Tournament not found on Start.gg. Let\'s continue manually.\n\nWhat is the **event name**?\n\n*Example: Weekly Smash Ultimate Tournament*'
     );
     await session.botMessage.edit({ embeds: [embed], components: [] });

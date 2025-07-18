@@ -12,7 +12,8 @@ module.exports = {
   
   EVENT_TYPES: {
     LOCAL: 'local',
-    OUT_OF_REGION: 'out_of_region', 
+    MISSOURI: 'missouri',
+    OUT_OF_STATE: 'out_of_state', 
     ONLINE: 'online'
   },
   
@@ -21,25 +22,38 @@ module.exports = {
     'TO (SEMO)': 'local',
     // Online TO creates online events
     'TO (Online)': 'online',
-    // All other TO roles create out of region events
-    'TO (St. Louis)': 'out_of_region',
-    'TO (Jefferson City)': 'out_of_region',
-    'TO (CoMo)': 'out_of_region',
-    'TO (Kansas City)': 'out_of_region',
-    'TO (Springfield)': 'out_of_region',
-    'TO (Rolla)': 'out_of_region'
+    // Missouri TO roles create missouri events
+    'TO (St. Louis)': 'missouri',
+    'TO (Jefferson City)': 'missouri',
+    'TO (CoMo)': 'missouri',
+    'TO (Kansas City)': 'missouri',
+    'TO (Springfield)': 'missouri',
+    'TO (Rolla)': 'missouri'
+    // Note: Any other TO roles would create out_of_state events
   },
   
   EVENT_TYPE_LABELS: {
     local: '🏠 Local Events (SEMO)',
-    out_of_region: '🌍 Out of Region Events',
+    missouri: '🏛️ Missouri Events',
+    out_of_state: '🌍 Out of State Events',
     online: '💻 Online Events'
   },
   
   EVENT_TYPE_COLORS: {
-    local: 0x00ff00,      // Green for local
-    out_of_region: 0xff6b35, // Orange for out of region
+    local: 0x00ff00,      // Green for local SEMO
+    missouri: 0x9932cc,   // Purple for Missouri
+    out_of_state: 0xff6b35, // Orange for out of state
     online: 0x0099ff      // Blue for online
+  },
+
+  // Missouri region mappings for display
+  MISSOURI_REGIONS: {
+    'TO (St. Louis)': 'STL',
+    'TO (Jefferson City)': 'JC',
+    'TO (CoMo)': 'CoMo',
+    'TO (Kansas City)': 'KC',
+    'TO (Springfield)': 'SGF',
+    'TO (Rolla)': 'Rolla'
   },
   
   STARTGG_API_URL: 'https://api.start.gg/gql/alpha',
@@ -56,9 +70,9 @@ module.exports = {
   },
   
   TEXT_STEPS: [
-    'startgg_url', 'event_name_manual', 'address', 'to_contact', 'start_time',
-    'venue_fee_custom', 'entry_fee_custom', 'events_custom', 'event_type_custom',
+    'startgg_url', 'event_name_manual', 'address', 'start_time',
+    'events_custom', 'event_type_custom',
     'edit_event_name', 'edit_address', 'edit_to_contact', 'edit_start_time',
-    'edit_venue_fee_custom', 'edit_entry_fee_custom', 'edit_events_custom', 'edit_event_type_custom'
+    'edit_events_custom', 'edit_event_type_custom'
   ]
 };

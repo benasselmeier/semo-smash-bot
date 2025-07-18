@@ -1,7 +1,5 @@
 const sessionManager = require('../utils/sessionManager');
 const embedBuilder = require('../utils/embedBuilder');
-const { askVenueFeeQuestion } = require('../steps/venueFeeStep');
-const { askEntryFeeQuestion } = require('../steps/entryFeeStep');
 const { createTournamentAnnouncement, postTournamentAnnouncement } = require('./announcementHandler');
 const { startAnnouncementFlow } = require('../steps/announcementFlow');
 const { startEditFlow } = require('../steps/editFlow');
@@ -126,7 +124,7 @@ async function handleButtonInteraction(interaction, session) {
     if (!session.selectedRoles || session.selectedRoles.length === 0) {
       await interaction.reply({ 
         content: 'Please select roles to notify first.', 
-        ephemeral: true 
+        flags: 64 // EPHEMERAL flag
       });
       return;
     }
@@ -150,9 +148,9 @@ async function handleButtonInteraction(interaction, session) {
   
   // Handle API data confirmation buttons
   if (customId === 'use_api_data') {
-    sessionManager.updateSession(session.userId, { step: 'venue_fee' });
+    // Skip venue/entry fee steps and go directly to announcement creation
     await interaction.deferUpdate();
-    await askVenueFeeQuestion(sessionManager.getSession(session.userId));
+    await createTournamentAnnouncement(sessionManager.getSession(session.userId));
     return;
   }
   
@@ -161,70 +159,6 @@ async function handleButtonInteraction(interaction, session) {
     // Use the field editing interface instead of sequential editing
     await startEditFlow(session);
     return;
-  }
-  
-  // Handle venue fee buttons (both normal flow and edit flow)
-  if (customId.startsWith('venue_')) {
-    const feeValues = {
-      'venue_free': 'Free',
-      'venue_5': '$5',
-      'venue_10': '$10'
-    };
-    
-    if (feeValues[customId]) {
-      sessionManager.updateSession(session.userId, {
-        data: { ...session.data, venueFee: feeValues[customId] }
-      });
-      
-      await interaction.deferUpdate();
-      
-      // Check if we're in edit mode
-      if (session.step === 'edit_venue_fee') {
-        await showFieldEditSelection(sessionManager.getSession(session.userId));
-      } else {
-        sessionManager.updateSession(session.userId, { step: 'entry_fee' });
-        await askEntryFeeQuestion(sessionManager.getSession(session.userId));
-      }
-    } else if (customId === 'venue_custom') {
-      const step = session.step === 'edit_venue_fee' ? 'edit_venue_fee_custom' : 'venue_fee_custom';
-      sessionManager.updateSession(session.userId, { step });
-      await interaction.deferUpdate();
-      const embed = embedBuilder.createStepEmbed(
-        session.step === 'edit_venue_fee' ? 'Edit Venue Fee' : 'Step 4/8',
-        'Please type the custom venue fee amount:\n\n*Example: $15 or $7.50*'
-      );
-      await session.botMessage.edit({ embeds: [embed], components: [] });
-    }
-  } else if (customId.startsWith('entry_')) {
-    const feeValues = {
-      'entry_free': 'Free',
-      'entry_5': '$5',
-      'entry_10': '$10'
-    };
-    
-    if (feeValues[customId]) {
-      sessionManager.updateSession(session.userId, {
-        data: { ...session.data, entryFee: feeValues[customId] }
-      });
-      
-      await interaction.deferUpdate();
-      
-      // Check if we're in edit mode
-      if (session.step === 'edit_entry_fee') {
-        await showFieldEditSelection(sessionManager.getSession(session.userId));
-      } else {
-        await createTournamentAnnouncement(sessionManager.getSession(session.userId));
-      }
-    } else if (customId === 'entry_custom') {
-      const step = session.step === 'edit_entry_fee' ? 'edit_entry_fee_custom' : 'entry_fee_custom';
-      sessionManager.updateSession(session.userId, { step });
-      await interaction.deferUpdate();
-      const embed = embedBuilder.createStepEmbed(
-        session.step === 'edit_entry_fee' ? 'Edit Entry Fee' : 'Step 5/8',
-        'Please type the custom entry fee amount:\n\n*Example: $15 Singles, $5 Doubles*'
-      );
-      await session.botMessage.edit({ embeds: [embed], components: [] });
-    }
   }
 }
 
@@ -300,8 +234,77 @@ async function completeSetup(session) {
     announcementChannelId: setupData.announcementChannelId
   });
   
+  // Create placeholder messages in the announcement channel
+  await createPlaceholderMessages(announcementChannel);
+  
   // Clean up session
   sessionManager.deleteSession(session.userId);
+}
+
+async function createPlaceholderMessages(announcementChannel) {
+  const { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } = require('../config/constants');
+  
+  // Define the event types in order: Local, Missouri, Out of State, Online
+  const eventTypes = [
+    { key: 'local', label: EVENT_TYPE_LABELS.local, color: EVENT_TYPE_COLORS.local },
+    { key: 'missouri', label: EVENT_TYPE_LABELS.missouri, color: EVENT_TYPE_COLORS.missouri },
+    { key: 'out_of_state', label: EVENT_TYPE_LABELS.out_of_state, color: EVENT_TYPE_COLORS.out_of_state },
+    { key: 'online', label: EVENT_TYPE_LABELS.online, color: EVENT_TYPE_COLORS.online }
+  ];
+  
+  console.log(`Creating placeholder messages in ${announcementChannel.name} (${announcementChannel.id}) for guild ${announcementChannel.guild.name}`);
+  
+  try {
+    // Check if bot has permissions to send messages in the channel
+    const permissions = announcementChannel.permissionsFor(announcementChannel.guild.members.me);
+    if (!permissions.has('SendMessages')) {
+      console.error(`Bot does not have SendMessages permission in ${announcementChannel.name}`);
+      return;
+    }
+    if (!permissions.has('EmbedLinks')) {
+      console.error(`Bot does not have EmbedLinks permission in ${announcementChannel.name}`);
+      return;
+    }
+    
+    // Create placeholder messages for each event type
+    for (const eventType of eventTypes) {
+      console.log(`Creating placeholder for ${eventType.label}...`);
+      
+      const placeholderEmbed = new EmbedBuilder()
+        .setDescription('No tournaments currently scheduled. Check back later for updates!')
+        .setColor(eventType.color)
+        .setFooter({ text: 'This message will update automatically when tournaments are added.' })
+        .setTimestamp();
+      
+      const placeholderMessage = await announcementChannel.send({
+        content: `🎮 **${eventType.label}** 🎮`,
+        embeds: [placeholderEmbed]
+      });
+      
+      console.log(`Created placeholder message ${placeholderMessage.id} for ${eventType.label}`);
+      
+      // Track this as an active announcement placeholder
+      configManager.setActiveAnnouncement(announcementChannel.guild.id, eventType.key, {
+        messageId: placeholderMessage.id,
+        channelId: announcementChannel.id,
+        events: [],
+        roleMentions: [],
+        lastUpdated: Date.now(),
+        isPlaceholder: true
+      });
+    }
+    
+    console.log(`Successfully created ${eventTypes.length} placeholder messages in ${announcementChannel.name}`);
+  } catch (error) {
+    console.error('Error creating placeholder messages:', error);
+    console.error('Error details:', {
+      channelName: announcementChannel.name,
+      channelId: announcementChannel.id,
+      guildName: announcementChannel.guild.name,
+      guildId: announcementChannel.guild.id,
+      errorMessage: error.message
+    });
+  }
 }
 
 async function showChannelIdModal(interaction, channelType) {
@@ -331,7 +334,7 @@ async function handleChannelModalSubmit(interaction) {
   if (!session || session.flow !== 'setup') {
     await interaction.reply({ 
       content: 'Setup session not found. Please start setup again.', 
-      ephemeral: true 
+      flags: 64 // EPHEMERAL flag
     });
     return;
   }
@@ -358,7 +361,7 @@ async function handleChannelModalSubmit(interaction) {
     } else {
       await interaction.reply({ 
         content: `❌ Could not find a text channel with the name "${channelInput}". Please use a channel ID or exact channel name.`, 
-        ephemeral: true 
+        flags: 64 // EPHEMERAL flag
       });
       return;
     }
@@ -371,7 +374,7 @@ async function handleChannelModalSubmit(interaction) {
   if (!channel) {
     await interaction.reply({ 
       content: `❌ Channel not found. Please make sure the channel ID is correct and the bot has access to it.`, 
-      ephemeral: true 
+      flags: 64 // EPHEMERAL flag
     });
     return;
   }
@@ -379,7 +382,7 @@ async function handleChannelModalSubmit(interaction) {
   if (channel.type !== 0) {
     await interaction.reply({ 
       content: `❌ Selected channel must be a text channel. "${channel.name}" is not a text channel.`, 
-      ephemeral: true 
+      flags: 64 // EPHEMERAL flag
     });
     return;
   }
