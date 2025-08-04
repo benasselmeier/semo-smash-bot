@@ -441,6 +441,58 @@ async function handleSelectMenuInteraction(interaction, session) {
         break;
     }
   }
+  // Handle event edit select menu
+  if (customId === 'event_edit_select') {
+    await interaction.deferUpdate();
+    // Store selected event index in session for button actions
+    session.selectedEventIdx = parseInt(values[0], 10);
+    // No UI update needed here; buttons will use this value
+    return;
+  }
+  // Handle event type select for editing
+  if (customId === 'edit_event_type_select') {
+    await interaction.deferUpdate();
+    // Store selected event type in session
+    session.eventType = values[0];
+    // Show event select menu for that type
+    const configManager = require('../utils/configManager');
+    const announcement = configManager.getActiveAnnouncement(session.botMessage.guild.id, session.eventType);
+    if (!announcement || !announcement.events || announcement.events.length === 0) {
+      const { EmbedBuilder } = require('discord.js');
+      const embed = new EmbedBuilder()
+        .setTitle('No Events Found')
+        .setDescription('There are no events in this category to edit.');
+      await session.botMessage.edit({ embeds: [embed], components: [] });
+      return;
+    }
+    const { StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder } = require('discord.js');
+    const eventOptions = announcement.events.map((event, idx) => ({
+      label: event.eventName || `Event #${idx + 1}`,
+      value: idx.toString(),
+      description: event.startTime ? `Start: ${event.startTime}` : undefined,
+      emoji: '🎮'
+    }));
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('edit_event_select')
+      .setPlaceholder('Select an event to edit')
+      .addOptions(eventOptions);
+    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+    const embed = new EmbedBuilder()
+      .setTitle('Select Event to Edit')
+      .setDescription('Choose the event you want to edit.');
+    await session.botMessage.edit({ embeds: [embed], components: [selectRow] });
+    return;
+  }
+  // Handle event select for editing
+  if (customId === 'edit_event_select') {
+    await interaction.deferUpdate();
+    // Store selected event index
+    session.selectedEventIdx = parseInt(values[0], 10);
+    // Launch event edit flow for this event
+    const { startEventEditFlow } = require('../steps/eventEditFlow');
+    await startEventEditFlow(session);
+    return;
+  }
 }
 
 module.exports = {

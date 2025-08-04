@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
 const { ROLE_MAPPINGS, COLORS } = require('../config/constants');
 const sessionManager = require('../utils/sessionManager');
 const { startAnnouncementFlow } = require('../steps/announcementFlow');
@@ -82,6 +82,7 @@ async function executeCreate(interaction, slug = null) {
     });
     
     // Initialize session
+    const notificationRole = ROLE_MAPPINGS[primaryTORole.name];
     const session = sessionManager.createSession(interaction.user.id, {
       channelId: interaction.channel.id,
       botMessageId: botMessage.id,
@@ -91,7 +92,8 @@ async function executeCreate(interaction, slug = null) {
       data: {},
       toRoles: userTORoles.map(role => role.name),
       primaryTORole: primaryTORole.name,
-      eventType: configManager.getEventTypeFromRole(interaction.member) // Auto-detect event type
+      eventType: configManager.getEventTypeFromRole(interaction.member), // Auto-detect event type
+      selectedRoles: notificationRole ? [notificationRole] : [] // Auto-select notification role
     });
     
     if (slug) {
@@ -125,7 +127,31 @@ module.exports = {
   name: 'tourney',
   description: 'Tournament management commands',
   
+  data: new SlashCommandBuilder()
+    .setName('tourney')
+    .setDescription('Tournament management commands')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('manage')
+        .setDescription('Edit or manage an event in the announcements channel')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('create')
+        .setDescription('Create a new tournament announcement')
+        // You can add options for create here if needed
+    ),
+  
   async execute(interaction) {
+    // Handle /tourney manage
+    if (interaction.options && interaction.options.getSubcommand && interaction.options.getSubcommand() === 'manage') {
+      return await module.exports.executeEdit(interaction);
+    }
+    // Handle /tourney create
+    if (interaction.options && interaction.options.getSubcommand && interaction.options.getSubcommand() === 'create') {
+      return await module.exports.executeCreate(interaction);
+    }
+    
     try {
       // Check if user already has an active session
       if (sessionManager.hasSession(interaction.user.id)) {
@@ -195,5 +221,42 @@ module.exports = {
     }
   },
   
-  executeCreate
+  executeCreate,
+  
+  async executeEdit(interaction) {
+    // New command: /tourney edit
+    // 1. Ask user to select event type (region/category)
+    // 2. Show a list of events in that category (from configManager)
+    // 3. Launch event edit flow for the selected event
+    const session = sessionManager.createSession(interaction.user.id, {
+      channelId: interaction.channel.id,
+      botMessageId: null,
+      botMessage: null,
+      step: 'edit_event_type',
+      data: {},
+      toRoles: [],
+      primaryTORole: null,
+      eventType: null
+    });
+    // 1. Show event type/category select menu
+    const { EVENT_TYPE_LABELS } = require('../config/constants');
+    const eventTypeOptions = Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => ({
+      label,
+      value: key,
+      emoji: '📢'
+    }));
+    const { StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder } = require('discord.js');
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('edit_event_type_select')
+      .setPlaceholder('Select event category/region')
+      .addOptions(eventTypeOptions);
+    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+    const embed = new EmbedBuilder()
+      .setTitle('Edit Existing Event')
+      .setDescription('Select the event category/region to edit an event from.');
+    await interaction.reply({ embeds: [embed], components: [selectRow], ephemeral: true });
+    // Store session for follow-up
+    session.botMessage = await interaction.fetchReply();
+    sessionManager.updateSession(interaction.user.id, session);
+  }
 };

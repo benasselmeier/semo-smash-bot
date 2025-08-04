@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const { Collection } = require('discord.js');
 
 class ConfigManager {
@@ -10,10 +12,38 @@ class ConfigManager {
     
     // Store client reference for cleanup operations
     this.client = null;
+
+    this.configFilePath = path.join(__dirname, 'guildConfigs.json');
+    this.loadConfigsFromFile();
   }
 
   setClient(client) {
     this.client = client;
+  }
+
+  loadConfigsFromFile() {
+    try {
+      if (fs.existsSync(this.configFilePath)) {
+        const data = fs.readFileSync(this.configFilePath, 'utf8');
+        const parsed = JSON.parse(data);
+        for (const [guildId, config] of Object.entries(parsed)) {
+          this.guildConfigs.set(guildId, config);
+        }
+        console.log('Loaded guild configs from file.');
+      }
+    } catch (err) {
+      console.error('Failed to load guild configs from file:', err);
+    }
+  }
+
+  saveConfigsToFile() {
+    try {
+      const obj = Object.fromEntries(this.guildConfigs.entries());
+      fs.writeFileSync(this.configFilePath, JSON.stringify(obj, null, 2), 'utf8');
+      //console.log('Saved guild configs to file.');
+    } catch (err) {
+      console.error('Failed to save guild configs to file:', err);
+    }
   }
 
   saveGuildConfig(guildId, config) {
@@ -21,6 +51,7 @@ class ConfigManager {
       ...config,
       lastUpdated: Date.now()
     });
+    this.saveConfigsToFile();
     console.log(`Saved configuration for guild ${guildId}:`, config);
   }
 
@@ -33,7 +64,9 @@ class ConfigManager {
   }
 
   deleteGuildConfig(guildId) {
-    return this.guildConfigs.delete(guildId);
+    const result = this.guildConfigs.delete(guildId);
+    this.saveConfigsToFile();
+    return result;
   }
 
   // Get the announcement channel for a guild
@@ -54,6 +87,15 @@ class ConfigManager {
     }
     
     return guild.channels.cache.get(config.managementChannelId) || null;
+  }
+
+  // Get the announcements channel for a guild
+  getAnnouncementsChannel(guild) {
+    const config = this.getGuildConfig(guild.id);
+    if (!config || !config.announcementsChannelId) {
+      return null;
+    }
+    return guild.channels.cache.get(config.announcementsChannelId) || null;
   }
 
   // Check if a user has TO permissions

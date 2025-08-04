@@ -105,8 +105,7 @@ class TournamentEmbedBuilder {
         { name: '📅 Start Time', value: data.startTime || 'Not set', inline: true },
         { name: '🎮 Events', value: data.events || 'Not set', inline: true },
         { name: '📍 Address', value: data.address || 'Not set', inline: false },
-        { name: '👤 TO Contact', value: data.toContact || 'Not set', inline: true },
-        { name: '🔗 Registration', value: data.startggUrl ? `[Register on Start.gg](${data.startggUrl})` : 'Registration link not available', inline: true }
+        { name: '👤 TO Contact', value: data.toContact || 'Not set', inline: true }
       )
       .setFooter({ text: 'Good luck and have fun!' })
       .setTimestamp();
@@ -176,20 +175,26 @@ class TournamentEmbedBuilder {
       }
     }
 
-    return new EmbedBuilder()
+    const when = data.startTime || 'Not set';
+    const where = data.address || 'Not set';
+    const contact = data.toContact || 'Not set';
+    const footerText = data.startggUrl
+      ? `Click here to register on start.gg`
+      : 'Registration link not available';
+    const footerObj = data.startggUrl
+      ? { text: footerText, iconURL: undefined }
+      : { text: footerText };
+
+    const description = `**When:** ${when}\n**Where:** ${where}\n**TO Contact:** ${contact}`;
+
+    const embed = new EmbedBuilder()
       .setTitle(eventTitle)
-      .setDescription(`Join us for an exciting tournament! Register now on Start.gg`)
+      .setDescription(description)
       .setColor(EVENT_TYPE_COLORS[eventType] || COLORS.TOURNAMENT)
       .setURL(data.startggUrl || null)
-      .addFields(
-        { name: '📅 Start Time', value: data.startTime || 'Not set', inline: true },
-        { name: '🎮 Events', value: data.events || 'Not set', inline: true },
-        { name: '📍 Address', value: data.address || 'Not set', inline: false },
-        { name: '👤 TO Contact', value: data.toContact || 'Not set', inline: true },
-        { name: '🔗 Registration', value: data.startggUrl ? `[Register on Start.gg](${data.startggUrl})` : 'Registration link not available', inline: true }
-      )
-      .setFooter({ text: 'Good luck and have fun!' })
+      .setFooter(footerObj)
       .setTimestamp();
+    return embed;
   }
 }
 

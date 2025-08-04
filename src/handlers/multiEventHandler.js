@@ -53,20 +53,22 @@ class MultiEventHandler {
       ? `🎮 **${EVENT_TYPE_LABELS[eventType]}** 🎮\n\n${roleMentions.join(' ')} - New tournament(s) announced!`
       : `🎮 **${EVENT_TYPE_LABELS[eventType]}** 🎮`;
     
-    // Create single event embed
-    const embed = embedBuilder.createSingleEventAnnouncementEmbed(data, eventType, session.primaryTORole);
-    
+    // Create single event embed(s)
+    const embeds = Array.isArray(data)
+      ? data.map(event => embedBuilder.createSingleEventAnnouncementEmbed(event, eventType, session.primaryTORole))
+      : [embedBuilder.createSingleEventAnnouncementEmbed(data, eventType, session.primaryTORole)];
+
     // Send the announcement
     const announcementMessage = await announcementChannel.send({
       content: announcementContent,
-      embeds: [embed]
+      embeds: embeds
     });
-    
+
     // Track this announcement
     configManager.setActiveAnnouncement(guild.id, eventType, {
       messageId: announcementMessage.id,
       channelId: announcementChannel.id,
-      events: [{ ...data, toRole: session.primaryTORole }],
+      events: Array.isArray(data) ? data.map(event => ({ ...event, toRole: session.primaryTORole })) : [{ ...data, toRole: session.primaryTORole }],
       roleMentions: selectedRoles,
       lastUpdated: Date.now(),
       isPlaceholder: false
@@ -119,23 +121,25 @@ class MultiEventHandler {
       
       // Add to existing tournaments (not placeholder)
       const allEvents = [...existingAnnouncement.events, { ...newEventData, toRole: session.primaryTORole }];
-      
       // Merge role mentions (avoid duplicates)
       const combinedRoles = [...new Set([...existingAnnouncement.roleMentions, ...selectedRoles])];
-      
-      // Create updated embed with all events
-      const updatedEmbed = embedBuilder.createMultiEventAnnouncementEmbed(eventType, allEvents, session.primaryTORole);
-      
+
+      // Create an array of single-event embeds for each event
+      const sortedEvents = embedBuilder.sortEventsByDate([...allEvents]);
+      const updatedEmbeds = sortedEvents.map(eventData =>
+        embedBuilder.createSingleEventAnnouncementEmbed(eventData, eventType, eventData.toRole || session.primaryTORole)
+      );
+
       // For message edits, just use the header without role mentions
       // since edits don't trigger notifications anyway
       const announcementContent = `🎮 **${EVENT_TYPE_LABELS[eventType]}** 🎮`;
-      
+
       // Update the message
       await message.edit({
         content: announcementContent,
-        embeds: [updatedEmbed]
+        embeds: updatedEmbeds
       });
-      
+
       // Update tracking data
       configManager.setActiveAnnouncement(guild.id, eventType, {
         messageId: message.id,
@@ -213,6 +217,58 @@ class MultiEventHandler {
       lastUpdated: Date.now(),
       isPlaceholder: true
     });
+  }
+  
+  // Scheduled job to remove past events from announcements
+  startExpiredEventCleanupJob(client) {
+    // Run every 10 minutes
+    setInterval(async () => {
+      for (const [guildId, guildAnnouncements] of require('../utils/configManager').activeAnnouncements.entries()) {
+        for (const [eventType, announcementData] of guildAnnouncements.entries()) {
+          if (!announcementData.events || announcementData.events.length === 0) continue;
+          const guild = client.guilds.cache.get(guildId);
+          if (!guild) continue;
+          const channel = guild.channels.cache.get(announcementData.channelId);
+          if (!channel) continue;
+          let message;
+          try {
+            message = await channel.messages.fetch(announcementData.messageId);
+          } catch (e) { continue; }
+
+          // Filter out events whose date has passed
+          const now = new Date();
+          const validEvents = announcementData.events.filter(event => {
+            const eventDate = require('../utils/embedBuilder').parseEventDate(event.startTime);
+            return eventDate > now;
+          });
+
+          if (validEvents.length === 0) {
+            // Reset to placeholder if no events remain
+            await this.resetToPlaceholder(message, eventType, guildId);
+            continue;
+          }
+
+          // Update the announcement with only valid events
+          const session = { primaryTORole: validEvents[0]?.toRole };
+          const updatedEmbeds = validEvents.map(eventData =>
+            require('../utils/embedBuilder').createSingleEventAnnouncementEmbed(eventData, eventType, eventData.toRole || session.primaryTORole)
+          );
+          const { EVENT_TYPE_LABELS } = require('../config/constants');
+          await message.edit({
+            content: `🎮 **${EVENT_TYPE_LABELS[eventType]}** 🎮`,
+            embeds: updatedEmbeds
+          });
+
+          // Update tracking data
+          require('../utils/configManager').setActiveAnnouncement(guildId, eventType, {
+            ...announcementData,
+            events: validEvents,
+            lastUpdated: Date.now(),
+            isPlaceholder: false
+          });
+        }
+      }
+    }, 10 * 60 * 1000); // 10 minutes
   }
 }
 

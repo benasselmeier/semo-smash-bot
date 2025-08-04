@@ -4,7 +4,7 @@ const { createTournamentAnnouncement, postTournamentAnnouncement } = require('./
 const { startAnnouncementFlow } = require('../steps/announcementFlow');
 const { startEditFlow } = require('../steps/editFlow');
 const { showFieldEditSelection } = require('../steps/fieldEditStep');
-const { startSetupFlow, setupEnjoyerRoles, setupManagementChannel, setupAnnouncementChannel } = require('../steps/setupFlow');
+const { startSetupFlow, setupEnjoyerRoles, setupManagementChannel, setupAnnouncementChannel, setupAnnouncementsChannel } = require('../steps/setupFlow');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { COLORS } = require('../config/constants');
 const configManager = require('../utils/configManager');
@@ -73,20 +73,23 @@ async function handleButtonInteraction(interaction, session) {
     await setupAnnouncementChannel(sessionManager.getSession(session.userId));
     return;
   }
-  
   if (customId === 'setup_continue_to_announcement_channel') {
     await interaction.deferUpdate();
     await setupAnnouncementChannel(session);
     return;
   }
-  
   if (customId === 'setup_skip_announcement_channel') {
     await interaction.deferUpdate();
-    // Use current channel as announcement channel
+    // Use current channel as upcoming tournaments channel
     sessionManager.updateSession(session.userId, {
       setupData: { ...session.setupData, announcementChannelId: session.channelId }
     });
-    await completeSetup(session);
+    await setupAnnouncementsChannel(sessionManager.getSession(session.userId));
+    return;
+  }
+  if (customId === 'setup_continue_to_announcements_channel') {
+    await interaction.deferUpdate();
+    await setupAnnouncementsChannel(session);
     return;
   }
   
@@ -94,9 +97,12 @@ async function handleButtonInteraction(interaction, session) {
     await showChannelIdModal(interaction, 'management');
     return;
   }
-  
   if (customId === 'setup_announcement_channel_manual') {
     await showChannelIdModal(interaction, 'announcement');
+    return;
+  }
+  if (customId === 'setup_announcements_channel_manual') {
+    await showChannelIdModal(interaction, 'announcements');
     return;
   }
   
@@ -116,6 +122,13 @@ async function handleButtonInteraction(interaction, session) {
   if (customId === 'edit_event') {
     await interaction.deferUpdate();
     await startEditFlow(session);
+    return;
+  }
+  
+  if (customId === 'edit_events') {
+    await interaction.deferUpdate();
+    const { startEventEditFlow } = require('../steps/eventEditFlow');
+    await startEventEditFlow(session);
     return;
   }
   
@@ -160,6 +173,34 @@ async function handleButtonInteraction(interaction, session) {
     await startEditFlow(session);
     return;
   }
+  // --- Event Edit Buttons ---
+  if (customId === 'event_edit_remove') {
+    const { handleEventEditAction } = require('../steps/eventEditFlow');
+    await handleEventEditAction(session, 'remove', session.selectedEventIdx);
+    return;
+  }
+  if (customId === 'event_edit_up') {
+    const { handleEventEditAction } = require('../steps/eventEditFlow');
+    await handleEventEditAction(session, 'up', session.selectedEventIdx);
+    return;
+  }
+  if (customId === 'event_edit_down') {
+    const { handleEventEditAction } = require('../steps/eventEditFlow');
+    await handleEventEditAction(session, 'down', session.selectedEventIdx);
+    return;
+  }
+  if (customId === 'event_edit_edit') {
+    const { handleEventEditAction } = require('../steps/eventEditFlow');
+    await handleEventEditAction(session, 'edit', session.selectedEventIdx);
+    return;
+  }
+  if (customId === 'event_edit_done') {
+    await interaction.deferUpdate();
+    // Return to confirmation or main menu (could call createTournamentAnnouncement or similar)
+    const { createTournamentAnnouncement } = require('./announcementHandler');
+    await createTournamentAnnouncement(session);
+    return;
+  }
 }
 
 async function completeSetup(session) {
@@ -183,6 +224,10 @@ async function completeSetup(session) {
     
   const announcementChannel = setupData.announcementChannelId ? 
     guild.channels.cache.get(setupData.announcementChannelId) : 
+    session.botMessage.channel;
+  
+  const announcementsChannel = setupData.announcementsChannelId ? 
+    guild.channels.cache.get(setupData.announcementsChannelId) : 
     session.botMessage.channel;
   
   // Create completion embed
@@ -210,6 +255,11 @@ async function completeSetup(session) {
         name: '📢 Announcement Channel', 
         value: `<#${announcementChannel.id}>`, 
         inline: true 
+      },
+      { 
+        name: '📣 Announcements Channel', 
+        value: `<#${announcementsChannel.id}>`, 
+        inline: true 
       }
     )
     .addFields(
@@ -231,10 +281,11 @@ async function completeSetup(session) {
     toRoles: setupData.toRoles,
     enjoyerRoles: setupData.enjoyerRoles,
     managementChannelId: setupData.managementChannelId,
-    announcementChannelId: setupData.announcementChannelId
+    announcementChannelId: setupData.announcementChannelId,
+    announcementsChannelId: setupData.announcementsChannelId
   });
   
-  // Create placeholder messages in the announcement channel
+  // Create placeholder messages in the upcoming tournaments channel
   await createPlaceholderMessages(announcementChannel);
   
   // Clean up session
@@ -310,7 +361,7 @@ async function createPlaceholderMessages(announcementChannel) {
 async function showChannelIdModal(interaction, channelType) {
   const modal = new ModalBuilder()
     .setCustomId(`setup_${channelType}_channel_modal`)
-    .setTitle(`Set ${channelType === 'management' ? 'Management' : 'Announcement'} Channel`);
+    .setTitle(`Set ${channelType === 'management' ? 'Management' : 'Upcoming Tournaments'} Channel`);
 
   const channelInput = new TextInputBuilder()
     .setCustomId('channel_id_input')
@@ -399,11 +450,19 @@ async function handleChannelModalSubmit(interaction) {
     sessionManager.updateSession(session.userId, {
       setupData: { ...session.setupData, announcementChannelId: channelId }
     });
+    await setupAnnouncementsChannel(sessionManager.getSession(session.userId));
+  } else if (modalId === 'setup_announcements_channel_modal') {
+    sessionManager.updateSession(session.userId, {
+      setupData: { ...session.setupData, announcementsChannelId: channelId }
+    });
     await completeSetup(sessionManager.getSession(session.userId));
   }
 }
 
 module.exports = {
   handleButtonInteraction,
+  completeSetup,
+  createPlaceholderMessages,
+  showChannelIdModal,
   handleChannelModalSubmit
 };

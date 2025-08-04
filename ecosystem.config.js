@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
-    name: 'mother-brain-bot',
+    name: 'semo-smash-bot',
     script: 'index.js',
-    cwd: '/home/pi/discord-bots/mb-stands-for-mother-brain',
+    cwd: '/home/pi/discord-bots/semo-smash-bot',
     instances: 1,
     autorestart: true,
     watch: false,

@@ -7,6 +7,13 @@ const multiEventHandler = require('./multiEventHandler');
 
 async function createTournamentAnnouncement(session) {
   const data = session.data;
+
+  // If selectedRoles is already set (auto-selected), skip role selection UI and go straight to confirmation
+  if (session.selectedRoles && session.selectedRoles.length > 0) {
+    // Directly call postTournamentAnnouncement with the pre-selected roles
+    await module.exports.postTournamentAnnouncement(session, session.selectedRoles);
+    return;
+  }
   
   // Update session to confirmation step
   sessionManager.updateSession(session.userId, { step: 'confirmation' });
@@ -60,6 +67,11 @@ async function createTournamentAnnouncement(session) {
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('✏️'),
       new ButtonBuilder()
+        .setCustomId('edit_events')
+        .setLabel('Edit Events')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🗂️'),
+      new ButtonBuilder()
         .setCustomId('confirm_announcement')
         .setLabel('Send Announcement')
         .setStyle(ButtonStyle.Success)
@@ -77,10 +89,55 @@ async function createTournamentAnnouncement(session) {
 
 async function postTournamentAnnouncement(session, selectedRoles) {
   const data = session.data;
-  
-  // Use the multi-event handler to add this event to announcements
+  // Use the multi-event handler to add this event to upcoming tournaments
   await multiEventHandler.addEventToAnnouncement(session, data, selectedRoles);
-  
+
+  // --- Announcements Channel Message ---
+  const guild = session.botMessage.guild;
+  const config = configManager.getGuildConfig(guild.id);
+  const announcementsChannel = configManager.getAnnouncementsChannel(guild);
+  // FIX: Use correct config key for upcoming tournaments channel
+  const upcomingTournamentsChannel = config && config.announcementChannelId
+    ? guild.channels.cache.get(config.announcementChannelId)
+    : null;
+
+  if (announcementsChannel && upcomingTournamentsChannel) {
+    try {
+      // Find the correct Tournament role to mention based on the TO role the invoker has
+      let tournamentRoleMention = null;
+      if (session.primaryTORole) {
+        const toRole = guild.roles.cache.get(session.primaryTORole);
+        if (toRole) {
+          // Look for a role with the same region but ending in 'Tournaments'
+          const regionName = toRole.name.replace(/TO \((.+)\)/, '$1').trim();
+          const tournamentsRole = guild.roles.cache.find(r => r.name.toLowerCase().includes(regionName.toLowerCase()) && r.name.toLowerCase().includes('tournaments'));
+          if (tournamentsRole) {
+            tournamentRoleMention = `<@&${tournamentsRole.id}>`;
+          }
+        }
+      }
+      // Fallback: use first enjoyer role if no match
+      if (!tournamentRoleMention && config.enjoyerRoles && config.enjoyerRoles.length > 0) {
+        const fallbackRole = guild.roles.cache.get(config.enjoyerRoles[0]);
+        if (fallbackRole) tournamentRoleMention = `<@&${fallbackRole.id}>`;
+      }
+      // Fallback: no mention
+      if (!tournamentRoleMention) tournamentRoleMention = '';
+
+      // Tournament title and link
+      const eventTitle = data.title || data.name || 'Tournament';
+      const startggUrl = data.startggUrl || data.url || data.registrationUrl || '';
+      const upcomingChannelMention = `<#${upcomingTournamentsChannel.id}>`;
+      const msg = `${tournamentRoleMention} a new event has been added to ${upcomingChannelMention}: [${eventTitle}](${startggUrl})! Click the title to go to the event page or see more details in ${upcomingChannelMention}.`;
+      await announcementsChannel.send({ content: msg, allowedMentions: { parse: ['roles'] } });
+    } catch (err) {
+      console.error('Failed to send announcement to announcements channel:', err);
+    }
+  } else {
+    if (!announcementsChannel) console.error('Announcements channel not found or not configured.');
+    if (!upcomingTournamentsChannel) console.error('Upcoming tournaments channel not found or not configured.');
+  }
+
   // Clean up session
   sessionManager.deleteSession(session.userId);
 }
