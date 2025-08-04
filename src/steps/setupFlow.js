@@ -240,31 +240,22 @@ async function setupAnnouncementChannel(session) {
   const setupData = session.setupData;
   const guild = session.botMessage.guild;
 
-  // Try to auto-select 'upcoming-tournaments' channel
-  let announcementChannel = guild.channels.cache.find(
-    ch => ch.type === 0 && ch.name === 'upcoming-tournaments'
-  );
-  if (announcementChannel) {
-    // Auto-set and proceed to announcements channel step
-    session.setupData.announcementChannelId = announcementChannel.id;
-    await require('../steps/setupFlow').setupAnnouncementsChannel(session);
-    return;
-  }
-
+  // Do NOT auto-select 'upcoming-tournaments' channel
+  // Always prompt user to choose the upcoming tournaments channel
   const managementChannel = setupData.managementChannelId ? 
-    session.botMessage.guild.channels.cache.get(setupData.managementChannelId) : 
+    guild.channels.cache.get(setupData.managementChannelId) : 
     session.botMessage.channel;
   
   const embed = new EmbedBuilder()
-    .setTitle('🔧 Step 4/4: Tournament Announcement Channel')
-    .setDescription('Select the channel where tournament announcements will be posted for the community to see.')
+    .setTitle('🔧 Step 4/4: Upcoming Tournaments Channel')
+    .setDescription('Select the channel where upcoming tournaments will be posted for the community to see.')
     .setColor(COLORS.PRIMARY)
     .addFields(
       { name: '✅ Management Channel', value: `<#${managementChannel.id}>`, inline: false },
-      { name: '📋 Instructions', value: 'Select the channel where tournament announcements will be posted. This is typically a public channel where community members can see upcoming tournaments.\n\n💡 **Can\'t find your channel?** Click "Enter Channel ID" to manually specify any channel.' },
+      { name: '📋 Instructions', value: 'Select the channel where upcoming tournaments will be posted. This is typically a public channel where community members can see upcoming tournaments.\n\n💡 **Can\'t find your channel?** Click "Enter Channel ID" to manually specify any channel.' },
       { name: '🎯 Current Selection', value: 'None selected', inline: false }
     )
-    .setFooter({ text: 'Select announcement channel from the dropdown below' });
+    .setFooter({ text: 'Select upcoming tournaments channel from the dropdown below' });
 
   // Get text channels in the guild
   const channels = guild.channels.cache
@@ -281,7 +272,7 @@ async function setupAnnouncementChannel(session) {
 
   const channelSelect = new StringSelectMenuBuilder()
     .setCustomId('setup_announcement_channel_select')
-    .setPlaceholder('Choose announcement channel...')
+    .setPlaceholder('Choose upcoming tournaments channel...')
     .setMinValues(0)
     .setMaxValues(1)
     .addOptions(channelOptions);
@@ -322,17 +313,8 @@ async function setupAnnouncementsChannel(session) {
   const setupData = session.setupData;
   const guild = session.botMessage.guild;
 
-  // Try to auto-select 'announcements' channel
-  let announcementsChannel = guild.channels.cache.find(
-    ch => ch.type === 0 && ch.name === 'announcements'
-  );
-  if (announcementsChannel) {
-    session.setupData.announcementsChannelId = announcementsChannel.id;
-    // Continue to next step (complete setup)
-    await require('../handlers/buttonHandler').completeSetup(session);
-    return;
-  }
-
+  // Do NOT auto-select 'announcements' channel
+  // Always prompt user to choose the announcements channel
   const embed = new EmbedBuilder()
     .setTitle('🔧 Step 5/5: Announcements Channel')
     .setDescription('Select the channel where announcement pings will be posted when a new tournament is created. This is typically a public channel named "announcements".')

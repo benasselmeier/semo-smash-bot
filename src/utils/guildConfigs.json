@@ -12,5 +12,19 @@
     "announcementChannelId": "1394024282920714391",
     "announcementsChannelId": "1396928271593115771",
     "lastUpdated": 1754272812141
+  },
+  "528688792303829042": {
+    "guildId": "528688792303829042",
+    "guildName": "SEMO Smash",
+    "toRoles": [
+      "1369442978246033418"
+    ],
+    "enjoyerRoles": [
+      "1393013039309000744"
+    ],
+    "managementChannelId": "1393286196104401087",
+    "announcementChannelId": "1105608179376722121",
+    "announcementsChannelId": "536944320809533440",
+    "lastUpdated": 1754275612748
   }
 }
