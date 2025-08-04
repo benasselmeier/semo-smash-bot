@@ -185,5 +185,11 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Login to Discord
+// Debug: Print the token and fail early if missing/invalid
+if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN.length < 10) {
+  console.error('ERROR: DISCORD_TOKEN is missing or invalid. Check your .env file.');
+  process.exit(1);
+}
+console.log('Loaded token:', process.env.DISCORD_TOKEN);
+
 client.login(process.env.DISCORD_TOKEN);
