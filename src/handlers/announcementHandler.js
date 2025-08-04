@@ -103,32 +103,12 @@ async function postTournamentAnnouncement(session, selectedRoles) {
 
   if (announcementsChannel && upcomingTournamentsChannel) {
     try {
-      // Find the correct Tournament role to mention based on the TO role the invoker has
-      let tournamentRoleMention = null;
-      if (session.primaryTORole) {
-        const toRole = guild.roles.cache.get(session.primaryTORole);
-        if (toRole) {
-          // Look for a role with the same region but ending in 'Tournaments'
-          const regionName = toRole.name.replace(/TO \((.+)\)/, '$1').trim();
-          const tournamentsRole = guild.roles.cache.find(r => r.name.toLowerCase().includes(regionName.toLowerCase()) && r.name.toLowerCase().includes('tournaments'));
-          if (tournamentsRole) {
-            tournamentRoleMention = `<@&${tournamentsRole.id}>`;
-          }
-        }
-      }
-      // Fallback: use first enjoyer role if no match
-      if (!tournamentRoleMention && config.enjoyerRoles && config.enjoyerRoles.length > 0) {
-        const fallbackRole = guild.roles.cache.get(config.enjoyerRoles[0]);
-        if (fallbackRole) tournamentRoleMention = `<@&${fallbackRole.id}>`;
-      }
-      // Fallback: no mention
-      if (!tournamentRoleMention) tournamentRoleMention = '';
-
-      // Tournament title and link
+      // Always mention SEMO Tournaments role
+      const semoTournamentsRole = guild.roles.cache.find(r => r.name === 'SEMO Tournaments');
+      const tournamentRoleMention = semoTournamentsRole ? `<@&${semoTournamentsRole.id}>` : '';
       const eventTitle = data.title || data.name || 'Tournament';
-      const startggUrl = data.startggUrl || data.url || data.registrationUrl || '';
       const upcomingChannelMention = `<#${upcomingTournamentsChannel.id}>`;
-      const msg = `${tournamentRoleMention} a new event has been added to ${upcomingChannelMention}: [${eventTitle}](${startggUrl})! Click the title to go to the event page or see more details in ${upcomingChannelMention}.`;
+      const msg = `${tournamentRoleMention} ${eventTitle} has been added to the calendar! Check ${upcomingChannelMention} for full details.`;
       await announcementsChannel.send({ content: msg, allowedMentions: { parse: ['roles'] } });
     } catch (err) {
       console.error('Failed to send announcement to announcements channel:', err);

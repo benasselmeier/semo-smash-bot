@@ -270,6 +270,54 @@ class MultiEventHandler {
       }
     }, 10 * 60 * 1000); // 10 minutes
   }
+  
+  async cleanUpPassedEvents(guild) {
+    // Only SEMO event type for this trial
+    const eventType = 'local';
+    const announcement = configManager.getActiveAnnouncement(guild.id, eventType);
+    if (!announcement || !announcement.messageId) return;
+    const channel = guild.channels.cache.get(announcement.channelId);
+    if (!channel) return;
+    let message;
+    try {
+      message = await channel.messages.fetch(announcement.messageId);
+    } catch (err) {
+      return;
+    }
+    // Filter out passed events
+    const now = Date.now();
+    const upcomingEvents = (announcement.events || []).filter(event => {
+      // event.date should be a timestamp or ISO string
+      const eventTime = typeof event.date === 'string' ? Date.parse(event.date) : event.date;
+      return eventTime > now;
+    });
+    if (upcomingEvents.length === 0) {
+      // No upcoming events, show SEMO placeholder
+      const { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } = require('../config/constants');
+      const placeholderEmbed = new EmbedBuilder()
+        .setDescription('No SEMO tournaments currently scheduled. Check back later for updates!')
+        .setColor(EVENT_TYPE_COLORS.local)
+        .setFooter({ text: 'This message will update automatically when SEMO tournaments are added.' })
+        .setTimestamp();
+      await message.edit({
+        content: `🎮 **${EVENT_TYPE_LABELS.local} (SEMO)** 🎮`,
+        embeds: [placeholderEmbed]
+      });
+      announcement.events = [];
+      announcement.isPlaceholder = true;
+      configManager.setActiveAnnouncement(guild.id, eventType, announcement);
+      return;
+    }
+    // Otherwise, update the embed to only show upcoming events
+    const embed = embedBuilder.createMultiEventAnnouncementEmbed(upcomingEvents, eventType);
+    await message.edit({
+      content: `🎮 **${EVENT_TYPE_LABELS.local} (SEMO)** 🎮`,
+      embeds: [embed]
+    });
+    announcement.events = upcomingEvents;
+    announcement.isPlaceholder = false;
+    configManager.setActiveAnnouncement(guild.id, eventType, announcement);
+  }
 }
 
 module.exports = new MultiEventHandler();

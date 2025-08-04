@@ -10,6 +10,7 @@ const pingCommand = require('./src/commands/ping');
 const tourneyCommand = require('./src/commands/tourney');
 const setupCommand = require('./src/commands/setup');
 const multiEventHandler = require('./src/handlers/multiEventHandler');
+const cron = require('node-cron');
 require('dotenv').config();
 
 // Create a new client instance
@@ -84,6 +85,21 @@ client.once('ready', async () => {
   
   // Run initial cleanup
   multiEventHandler.cleanupOldAnnouncements();
+});
+
+// Schedule nightly cleanup of passed tournaments at midnight
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running nightly tournament cleanup...');
+  if (!client.isReady()) return;
+  for (const [guildId, config] of configManager.guildConfigs.entries()) {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) continue;
+    try {
+      await multiEventHandler.cleanUpPassedEvents(guild);
+    } catch (err) {
+      console.error(`Error cleaning up passed events for guild ${guildId}:`, err);
+    }
+  }
 });
 
 // Handle slash command interactions

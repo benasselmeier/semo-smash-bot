@@ -11,7 +11,8 @@
     "@discordjs/rest": "^2.5.1",
     "discord-api-types": "^0.38.15",
     "discord.js": "^14.15.3",
-    "dotenv": "^16.6.1"
+    "dotenv": "^16.6.1",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

@@ -9,15 +9,12 @@ async function startSetupFlow(session) {
   });
 
   const guild = session.botMessage.guild;
-  // Auto-detect TO roles: names containing 'TO ('
-  const autoToRoles = guild.roles.cache
-    .filter(role => !role.managed && role.name !== '@everyone' && role.name.includes('TO ('))
-    .map(role => role.id);
+  // Only look for SEMO TO role
+  const semoToRole = guild.roles.cache.find(role => !role.managed && role.name === 'TO (SEMO)');
+  const autoToRoles = semoToRole ? [semoToRole.id] : [];
 
-  // Use auto-detected TO roles as default selection if none set
-  if (!session.setupData || !session.setupData.toRoles || session.setupData.toRoles.length === 0) {
-    session.setupData = { ...session.setupData, toRoles: autoToRoles };
-  }
+  // Use SEMO TO role as default selection if none set
+  session.setupData = { ...session.setupData, toRoles: autoToRoles };
   const toRoles = session.setupData.toRoles || [];
   const toRoleNames = toRoles.map(roleId => {
     const role = guild.roles.cache.get(roleId);
@@ -25,27 +22,22 @@ async function startSetupFlow(session) {
   });
 
   const embed = new EmbedBuilder()
-    .setTitle('🔧 Step 1/4: Tournament Organizer Roles')
-    .setDescription('Select all roles that should be designated as Tournament Organizer (TO) roles.\n\nThese roles will be able to create and manage tournament announcements.')
+    .setTitle('🔧 Step 1/2: SEMO Tournament Organizer Role')
+    .setDescription('Select the SEMO TO role. Only this role will be able to create and manage tournament announcements for this trial.')
     .setColor(COLORS.PRIMARY)
     .addFields(
-      { name: '📋 Instructions', value: 'Select all roles that tournament organizers should have. You can select multiple roles.' },
+      { name: '📋 Instructions', value: 'Select the SEMO TO role. You can only select one role.' },
       { name: '🎯 Current Selection', value: toRoleNames.length > 0 ? toRoleNames.join(', ') : 'None selected', inline: false }
     )
-    .setFooter({ text: 'Select roles from the dropdown below' });
+    .setFooter({ text: 'Select the SEMO TO role from the dropdown below' });
 
-  // Get all roles in the guild (excluding @everyone and bot roles)
-  const roles = guild.roles.cache
-    .filter(role => !role.managed && role.name !== '@everyone')
-    .sort((a, b) => b.position - a.position)
-    .first(25); // Discord limit is 25 options
-
-  if (roles.size === 0) {
+  // Only show SEMO TO role in dropdown
+  const roles = semoToRole ? [semoToRole] : [];
+  if (roles.length === 0) {
     const embed = new EmbedBuilder()
-      .setTitle('❌ No Roles Available')
-      .setDescription('No suitable roles found in this server. Please create some roles first.')
+      .setTitle('❌ SEMO TO Role Not Found')
+      .setDescription('No SEMO TO role found in this server. Please create a role named "TO (SEMO)" first.')
       .setColor(COLORS.ERROR);
-    
     await session.botMessage.edit({ embeds: [embed], components: [] });
     return;
   }
@@ -60,32 +52,23 @@ async function startSetupFlow(session) {
 
   const roleSelect = new StringSelectMenuBuilder()
     .setCustomId('setup_to_roles_select')
-    .setPlaceholder('Choose TO roles...')
-    .setMinValues(0)
-    .setMaxValues(roleOptions.length)
+    .setPlaceholder('Choose SEMO TO role...')
+    .setMinValues(1)
+    .setMaxValues(1)
     .addOptions(roleOptions);
 
   const selectRow = new ActionRowBuilder().addComponents(roleSelect);
-  
   const buttonRow = new ActionRowBuilder()
     .addComponents(
-      new ButtonBuilder()
-        .setCustomId('setup_skip_to_roles')
-        .setLabel('Skip (No TO Roles)')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('⏭️'),
       new ButtonBuilder()
         .setCustomId('setup_continue_to_enjoyer')
         .setLabel('Continue to Next Step')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('➡️')
-        .setDisabled(toRoles.length === 0) // Enable if any roles are selected
+        .setDisabled(toRoles.length === 0)
     );
 
-  await session.botMessage.edit({ 
-    embeds: [embed], 
-    components: [selectRow, buttonRow] 
-  });
+  await session.botMessage.edit({ embeds: [embed], components: [selectRow, buttonRow] });
 }
 
 async function setupEnjoyerRoles(session) {
@@ -94,63 +77,34 @@ async function setupEnjoyerRoles(session) {
   });
 
   const guild = session.botMessage.guild;
-  const toRoles = session.setupData.toRoles || [];
-  // Auto-detect Tournaments roles: names containing ' Tournaments'
-  const autoEnjoyerRoles = guild.roles.cache
-    .filter(role => !role.managed && role.name !== '@everyone' && role.name.includes(' Tournaments'))
-    .map(role => role.id);
-
-  // Use auto-detected enjoyer roles as default if none set
-  if (!session.setupData.enjoyerRoles || session.setupData.enjoyerRoles.length === 0) {
-    session.setupData = { ...session.setupData, enjoyerRoles: autoEnjoyerRoles };
-  }
+  // Only look for SEMO Tournaments role
+  const semoTournamentsRole = guild.roles.cache.find(role => !role.managed && role.name === 'SEMO Tournaments');
+  const autoEnjoyerRoles = semoTournamentsRole ? [semoTournamentsRole.id] : [];
+  session.setupData = { ...session.setupData, enjoyerRoles: autoEnjoyerRoles };
   const enjoyerRoles = session.setupData.enjoyerRoles || [];
-  const toRoleNames = toRoles.map(roleId => {
-    const role = guild.roles.cache.get(roleId);
-    return role ? role.name : 'Unknown Role';
-  });
   const enjoyerRoleNames = enjoyerRoles.map(roleId => {
     const role = guild.roles.cache.get(roleId);
     return role ? role.name : 'Unknown Role';
   });
 
   const embed = new EmbedBuilder()
-    .setTitle('🔧 Step 2/4: Community Notification Roles')
-    .setDescription('Select roles that should receive notifications when tournaments are announced.\n\nThese are typically community roles like "SEMO Enjoyer", "St. Louis Enjoyer", etc.')
+    .setTitle('🔧 Step 2/2: SEMO Notification Role')
+    .setDescription('Select the SEMO Tournaments role. Only this role will receive notifications for new SEMO events.')
     .setColor(COLORS.PRIMARY)
     .addFields(
-      { name: '✅ TO Roles Selected', value: toRoleNames.length > 0 ? toRoleNames.join(', ') : 'None selected', inline: false },
-      { name: '📋 Instructions', value: 'Select roles that should be notified about tournaments. You can select multiple roles.' },
+      { name: '📋 Instructions', value: 'Select the SEMO Tournaments role. You can only select one role.' },
       { name: '🎯 Current Selection', value: enjoyerRoleNames.length > 0 ? enjoyerRoleNames.join(', ') : 'None selected', inline: false }
     )
-    .setFooter({ text: 'Select notification roles from the dropdown below' });
+    .setFooter({ text: 'Select the SEMO Tournaments role from the dropdown below' });
 
-  // Get all roles in the guild (excluding @everyone, bot roles, and already selected TO roles)
-  const roles = guild.roles.cache
-    .filter(role => !role.managed && role.name !== '@everyone' && !toRoles.includes(role.id))
-    .sort((a, b) => b.position - a.position)
-    .first(25);
-
-  if (roles.size === 0) {
-    // No roles available, but continue anyway
-    const buttonRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('setup_skip_enjoyer_roles')
-          .setLabel('Skip (No Notification Roles)')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('⏭️'),
-        new ButtonBuilder()
-          .setCustomId('setup_continue_to_management_channel')
-          .setLabel('Continue to Channels')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('➡️')
-      );
-
-    await session.botMessage.edit({ 
-      embeds: [embed], 
-      components: [buttonRow] 
-    });
+  // Only show SEMO Tournaments role in dropdown
+  const roles = semoTournamentsRole ? [semoTournamentsRole] : [];
+  if (roles.length === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('❌ SEMO Tournaments Role Not Found')
+      .setDescription('No SEMO Tournaments role found in this server. Please create a role named "SEMO Tournaments" first.')
+      .setColor(COLORS.ERROR);
+    await session.botMessage.edit({ embeds: [embed], components: [] });
     return;
   }
 
@@ -164,32 +118,23 @@ async function setupEnjoyerRoles(session) {
 
   const roleSelect = new StringSelectMenuBuilder()
     .setCustomId('setup_enjoyer_roles_select')
-    .setPlaceholder('Choose notification roles...')
-    .setMinValues(0)
-    .setMaxValues(roleOptions.length)
+    .setPlaceholder('Choose SEMO Tournaments role...')
+    .setMinValues(1)
+    .setMaxValues(1)
     .addOptions(roleOptions);
 
   const selectRow = new ActionRowBuilder().addComponents(roleSelect);
-  
   const buttonRow = new ActionRowBuilder()
     .addComponents(
-      new ButtonBuilder()
-        .setCustomId('setup_skip_enjoyer_roles')
-        .setLabel('Skip (No Notification Roles)')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('⏭️'),
       new ButtonBuilder()
         .setCustomId('setup_continue_to_management_channel')
         .setLabel('Continue to Channels')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('➡️')
-        .setDisabled(enjoyerRoles.length === 0) // Enable if any roles are selected
+        .setDisabled(enjoyerRoles.length === 0)
     );
 
-  await session.botMessage.edit({ 
-    embeds: [embed], 
-    components: [selectRow, buttonRow] 
-  });
+  await session.botMessage.edit({ embeds: [embed], components: [selectRow, buttonRow] });
 }
 
 async function setupManagementChannel(session) {
@@ -400,7 +345,7 @@ async function setupAnnouncementsChannel(session) {
 
   // Get text channels in the guild
   const channels = guild.channels.cache
-    .filter(channel => channel.type === 0)
+    .filter(channel => channel.type === 0) // Text channels
     .sort((a, b) => a.position - b.position)
     .first(25);
 
@@ -444,6 +389,52 @@ async function setupAnnouncementsChannel(session) {
     embeds: [embed], 
     components: [selectRow, buttonRow] 
   });
+}
+
+async function createPlaceholderMessages(upcomingTournamentsChannel) {
+  // Only send SEMO local event placeholder for trial
+  const { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS } = require('../config/constants');
+  const eventType = { key: 'local', label: EVENT_TYPE_LABELS.local, color: EVENT_TYPE_COLORS.local };
+  try {
+    const permissions = upcomingTournamentsChannel.permissionsFor(upcomingTournamentsChannel.guild.members.me);
+    if (!permissions.has('SendMessages')) return;
+    if (!permissions.has('EmbedLinks')) return;
+
+    // Delete any existing non-SEMO placeholder messages
+    const messages = await upcomingTournamentsChannel.messages.fetch({ limit: 50 });
+    const nonSemoPlaceholders = messages.filter(msg =>
+      msg.author.id === upcomingTournamentsChannel.client.user.id &&
+      (
+        msg.content.includes('Missouri Events') ||
+        msg.content.includes('Out of State Events') ||
+        msg.content.includes('Online Events')
+      )
+    );
+    for (const msg of nonSemoPlaceholders.values()) {
+      await msg.delete().catch(() => {});
+    }
+
+    // Post SEMO placeholder only
+    const placeholderEmbed = new EmbedBuilder()
+      .setDescription('No SEMO tournaments currently scheduled. Check back later for updates!')
+      .setColor(eventType.color)
+      .setFooter({ text: 'This message will update automatically when SEMO tournaments are added.' })
+      .setTimestamp();
+    const placeholderMessage = await upcomingTournamentsChannel.send({
+      content: `🎮 **${eventType.label} (SEMO)** 🎮`,
+      embeds: [placeholderEmbed]
+    });
+    require('../utils/configManager').setActiveAnnouncement(upcomingTournamentsChannel.guild.id, eventType.key, {
+      messageId: placeholderMessage.id,
+      channelId: upcomingTournamentsChannel.id,
+      events: [],
+      roleMentions: [],
+      lastUpdated: Date.now(),
+      isPlaceholder: true
+    });
+  } catch (error) {
+    console.error('Error creating SEMO placeholder message:', error);
+  }
 }
 
 module.exports = {
